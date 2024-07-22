@@ -78,54 +78,63 @@ class Template:
         new_content = {}
         for k, line in content.items():
             triplets = line['triplets']
-            ta = [tuple(w[:4]) for w in triplets if all(z != -1 for z in w[:4])]
-            to = [tuple(w[0:2] + w[4:6]) for w in triplets if all(z != -1 for z in w[:2] + w[4:6])]
-            ao = [tuple(w[2:6]) for w in triplets if all(z != -1 for z in w[2:6])]
+            # ta = [tuple(w[:4]) for w in triplets if all(z != -1 for z in w[:4])]
+            # to = [tuple(w[0:2] + w[4:6]) for w in triplets if all(z != -1 for z in w[:2] + w[4:6])]
+            ao = [tuple(w[0:4]) for w in triplets if all(z != -1 for z in w[0:4])]
 
             dis_matrix, sentence_ids = get_token_thread(line)
-            line.update({'ta': ta, 'to': to, 'ao': ao, 'dis_matrix': dis_matrix, 'sentence_ids': sentence_ids})
+            line.update({'ao': ao, 'dis_matrix': dis_matrix, 'sentence_ids': sentence_ids})
             new_content[k] = line
 
         return new_content
 
-    def post_process(self, line, key='quad'):
-        if key in ['targets', 'aspects', 'opinions']:
+    def post_process(self, line, key='trip'):
+        if key in ['aspects', 'opinions']:
             return [tuple(w[:2]) for w in line[key]]
-        if key in ['ta', 'to', 'ao']:
+        if key in ['ao']:
             return [tuple(w[:4]) for w in line[key]]
 
         res = []
-        if key in ['quad', 'iden']:
+        if key in ['trip', 'iden']:
             for comb in line['triplets']:
-                if any(w == -1 for w in comb[:6]): continue
-                assert all(isinstance(w, int) for w in comb[:6])
-                assert isinstance(comb[6], str) 
-                assert len(comb) == 10
-                comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
-                res.append(tuple(comb[:6 if key == 'iden' else 7]))
-            return res
-        if key in ['intra', 'inter']:
-            for comb in line['triplets']:
-                if any(w == -1 for w in comb[:6]): continue
-                comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
-                distance = get_utterance_distance(line['sentence_ids'], line['dis_matrix'], comb[0], comb[2], comb[4])
-                if key == 'intra' and distance > 0: continue
-                if key == 'inter' and distance == 0: continue
-                res.append(tuple(comb[:7]))
-            return res
-        if key in ['cross-1', 'cross-2', 'cross-3']:
-            for comb in line['triplets']:
-                if any(w == -1 for w in comb[:6]): continue
-                comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
-                distance = get_utterance_distance(line['sentence_ids'], line['dis_matrix'], comb[0], comb[2], comb[4])
-                if key == 'cross-1' and distance != 1: continue
-                if key == 'cross-2' and distance != 2: continue
-                if key == 'cross-3' and distance <3: continue
-                res.append(tuple(comb[:7]))
+                if any(w == -1 for w in comb[:4]): continue
+                assert all(isinstance(w, int) for w in comb[:4])
+                assert isinstance(comb[4], str)
+                assert len(comb) == 7
+                comb[4] = comb[4] if comb[4] in ['pos', 'neg'] else 'other'
+                res.append(tuple(comb[:4 if key == 'iden' else 5]))
+
+        # if key in ['quad', 'iden']:
+        #     for comb in line['triplets']:
+        #         if any(w == -1 for w in comb[:6]): continue
+        #         assert all(isinstance(w, int) for w in comb[:6])
+        #         assert isinstance(comb[6], str)
+        #         assert len(comb) == 10
+        #         comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
+        #         res.append(tuple(comb[:6 if key == 'iden' else 7]))
+        #     return res
+        # if key in ['intra', 'inter']:
+        #     for comb in line['triplets']:
+        #         if any(w == -1 for w in comb[:6]): continue
+        #         comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
+        #         distance = get_utterance_distance(line['sentence_ids'], line['dis_matrix'], comb[0], comb[2], comb[4])
+        #         if key == 'intra' and distance > 0: continue
+        #         if key == 'inter' and distance == 0: continue
+        #         res.append(tuple(comb[:7]))
+        #     return res
+        # if key in ['cross-1', 'cross-2', 'cross-3']:
+        #     for comb in line['triplets']:
+        #         if any(w == -1 for w in comb[:6]): continue
+        #         comb[6] = comb[6] if comb[6] in ['pos', 'neg'] else 'other'
+        #         distance = get_utterance_distance(line['sentence_ids'], line['dis_matrix'], comb[0], comb[2], comb[4])
+        #         if key == 'cross-1' and distance != 1: continue
+        #         if key == 'cross-2' and distance != 2: continue
+        #         if key == 'cross-3' and distance <3: continue
+        #         res.append(tuple(comb[:7]))
             return res
         raise ValueError('Invalid key: {}'.format(key))
 
-    def compute_score(self, mode='quad'):
+    def compute_score(self, mode='trip'):
 
         tp, fp, fn = 0, 0, 0
         for doc_id in self.gold_res:
@@ -157,8 +166,8 @@ class Template:
 
         scores = []
         res = 'Item\tPrec.\tRec.\tF1\n'
-        items = ['targets', 'aspects', 'opinions', 'ta', 'to', 'ao', 'quad', 'iden', 'intra', 'inter', 'cross-1', 'cross-2', 'cross-3']
-        item_name = ['Target', 'Aspect', 'Opinion', 'TA', 'TO', 'AO', 'Micro', 'Iden', 'Intra', 'Inter', 'Cross-1', 'Cross-2', 'Cross-3']
+        items = ['aspects', 'opinions', 'ao', 'trip', 'iden']
+        item_name = ['Aspect', 'Opinion', 'AO', 'Micro', 'Iden']
         num_format = lambda x: '\t' + '\t'.join([f'{w*100:.2f}' if i < 3 else str(w) for i, w in enumerate(x)]) + '\n'
         line_indices = [0, 3, 6, 8]
 
@@ -173,7 +182,7 @@ class Template:
         if print_line:
             print(res)
 
-        micro_score, iden_score = scores[6], scores[7]
+        micro_score, iden_score = scores[3], scores[4]
         return micro_score, iden_score, res
 
 

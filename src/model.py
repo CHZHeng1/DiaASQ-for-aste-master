@@ -17,11 +17,11 @@ class BertWordPair(nn.Module):
         self.bert = AutoModel.from_pretrained(cfg.bert_path)
         bert_config = AutoConfig.from_pretrained(cfg.bert_path)
 
-        # ent：{"O": 0, "ENT-T": 1, "ENT-A": 2, "ENT-O": 3}  原来是6
+        # ent：{"O": 0, "ENT-T": 1, "ENT-A": 2, "ENT-O": 3}  默认6
         # rel: {"O": 0, "h2h": 1, "t2t": 2}
         # pol: {"O": 0, "pos": 1, "neg": 2, 'other': 3}
         self.dense_layers = nn.ModuleDict({
-            'ent': nn.Linear(bert_config.hidden_size, cfg.inner_dim * 4 * 6),
+            'ent': nn.Linear(bert_config.hidden_size, cfg.inner_dim * 4 * 4),
             'rel': nn.Linear(bert_config.hidden_size, cfg.inner_dim * 4 * 3),
             'pol': nn.Linear(bert_config.hidden_size, cfg.inner_dim * 4 * 4)
         })

@@ -16,7 +16,8 @@ class WordPair:
     def __init__(self, max_sequence_len=512):
         self.max_sequence_len = max_sequence_len
 
-        self.entity_dic = {"O": 0, "ENT-T": 1, "ENT-A": 2, "ENT-O": 3}
+        self.entity_dic = {"O": 0, "ENT-A": 1, "ENT-O": 2}
+        # self.entity_dic = {"O": 0, "ENT-T": 1, "ENT-A": 2, "ENT-O": 3}
 
         self.rel_dic = {"O": 0, "h2h": 1, "t2t": 2}
 
@@ -40,18 +41,18 @@ class WordPair:
         '''
         rel_list = []
         for triplet in triplets:
-            s_en, e_en, s_as, e_as, s_op, e_op, polar = triplet
+            s_as, e_as, s_op, e_op, polar = triplet
             # Add head-to-head relations for the quadruples to head_rel_list
             # Add relation from entity to aspect
-
-            if s_en != -1 and s_as != -1:
-                rel_list.append((s_en, s_as, self.rel_dic['h2h']))
-                rel_list.append((e_en, e_as, self.rel_dic['t2t']))
-
-            # Add relation from entity to opinion
-            if s_en != -1 and s_op != -1:
-                rel_list.append((s_en, s_op, self.rel_dic['h2h']))
-                rel_list.append((e_en, e_op, self.rel_dic['t2t']))
+            #
+            # if s_en != -1 and s_as != -1:
+            #     rel_list.append((s_en, s_as, self.rel_dic['h2h']))
+            #     rel_list.append((e_en, e_as, self.rel_dic['t2t']))
+            #
+            # # Add relation from entity to opinion
+            # if s_en != -1 and s_op != -1:
+            #     rel_list.append((s_en, s_op, self.rel_dic['h2h']))
+            #     rel_list.append((e_en, e_op, self.rel_dic['t2t']))
 
             # Add relation from aspect to opinion
             if s_as != -1 and s_op != -1:
@@ -59,7 +60,7 @@ class WordPair:
                 rel_list.append((e_as, e_op, self.rel_dic['t2t']))
 
         return rel_list
-    
+
     def encode_polarity(self, triplets):
         '''
         Convert triplets in the dataLoader to polarity.
@@ -67,11 +68,11 @@ class WordPair:
         '''
         rel_list = []
         for triplet in triplets:
-            s_en, e_en, s_as, e_as, s_op, e_op, polar = triplet
+            s_as, e_as, s_op, e_op, polar = triplet
             # Add head-to-head relations for the quadruples->head_rel_list
             # Add relation entity->opinion
-            rel_list.append((s_en, s_op, polar))
-            rel_list.append((e_en, e_op, polar))
+            rel_list.append((s_as, s_op, polar))
+            rel_list.append((e_as, e_op, polar))
 
         return rel_list
 
@@ -105,7 +106,7 @@ class WordPair:
         pol_list = self.rel_matrix2list(pol_matrix)
         res, pair = self.decode_triplet(ent_list, rel_list, pol_list, token2sents)
         return res, pair
-    
+
     def decode_triplet(self, ent_list, rel_list, pol_list, token2sents):
         # Entity dictionary, with structure (head: [(tail, relation type)])
         entity_elem_dic = defaultdict(list)
@@ -114,7 +115,7 @@ class WordPair:
             if token2sents[entity[0]] != token2sents[entity[1]]: continue  # 不在一个句子中的情况
             entity_elem_dic[entity[0]].append((entity[1], entity[2]))
             entity2type[entity[:2]] = entity[2]
-        
+
         # Decoding polarity matrix
         pol_entity_elem = defaultdict(list)
         for h2h_pol in pol_list:
@@ -124,7 +125,7 @@ class WordPair:
         b2b_relation_set = {}
         for rel in pol_list:
             b2b_relation_set[rel[:2]] = rel[-1]
-        
+
         # tail2tail set
         t2t_relation_set = set()
         for rel in rel_list:
@@ -137,7 +138,7 @@ class WordPair:
             # for each head-to-head relationship, mark its entity as 0
             if h2h_rel[2] != self.rel_dic['h2h']: continue
             h2h_entity_elem[h2h_rel[0]].append((h2h_rel[1], h2h_rel[2]))
-        
+
         # for all head-to-head relations
         triplets = []
         for h1, values in h2h_entity_elem.items():
@@ -152,39 +153,52 @@ class WordPair:
         # if there is a (0,0,0,0) in triplets, remove it
         if (0, 0, 0, 0) in triplets:
             triplets.remove((0, 0, 0, 0))
-        
+
         triplet_set = set(triplets)
         ele2list = defaultdict(list)
         for line in triplets:
             e0, e1 = line[:2], line[2:]
             ele2list[e0].append(e1)
-        
+
         tetrad = []
         for subj, obj_list in ele2list.items():
             for obj in obj_list:
-                if obj not in ele2list: continue
-                for third in ele2list[obj]:
-                    if (*subj, *third) not in triplet_set: continue
-                    tp0 = b2b_relation_set.get((subj[0], third[0]), -1)
-                    tp1 = b2b_relation_set.get((subj[1], third[1]), -1)
-                    if (tp0 == tp1 or tp0 == -1) and tp1 != -1:
-                        tetrad.append((*subj, *obj, *third, tp1))
-                    elif tp0 != -1 and tp1 == -1:
-                        tetrad.append((*subj, *obj, *third, tp0))
-                    else:
-                        tetrad.append((*subj, *obj, *third, 1))
-        
-        pairs = {'ta': [], 'to': [], 'ao': []}
+                if (*subj, *obj) not in triplet_set: continue
+                tp0 = b2b_relation_set.get((subj[0], obj[0]), -1)
+                tp1 = b2b_relation_set.get((subj[1], obj[1]), -1)
+                if (tp0 == tp1 or tp0 == -1) and tp1 != -1:
+                    tetrad.append((*subj, *obj, tp1))
+                elif tp0 != -1 and tp1 == -1:
+                    tetrad.append((*subj, *obj, tp0))
+                else:
+                    tetrad.append((*subj, *obj, 1))
+
+        # for subj, obj_list in ele2list.items():
+        #     for obj in obj_list:
+        #         if obj not in ele2list: continue
+        #         for third in ele2list[obj]:
+        #             if (*subj, *third) not in triplet_set: continue
+        #             tp0 = b2b_relation_set.get((subj[0], third[0]), -1)
+        #             tp1 = b2b_relation_set.get((subj[1], third[1]), -1)
+        #             if (tp0 == tp1 or tp0 == -1) and tp1 != -1:
+        #                 tetrad.append((*subj, *obj, *third, tp1))
+        #             elif tp0 != -1 and tp1 == -1:
+        #                 tetrad.append((*subj, *obj, *third, tp0))
+        #             else:
+        #                 tetrad.append((*subj, *obj, *third, 1))
+
+        pairs = {'ao': []}
+        # pairs = {'ta': [], 'to': [], 'ao': []}
         for line in triplets:
             h1, t1, h2, t2 = line
             tp1 = entity2type[(h1, t1)]
             tp2 = entity2type[(h2, t2)]
             if tp1 == 1 and tp2 == 2:
-                pairs['ta'].append(line)
-            elif tp1 == 2 and tp2 == 3:
+            #     pairs['ta'].append(line)
+            # elif tp1 == 2 and tp2 == 3:
                 pairs['ao'].append(line)
-            elif tp1 == 1 and tp2 == 3:
-                pairs['to'].append(line)
+            # elif tp1 == 1 and tp2 == 3:
+            #     pairs['to'].append(line)
         return set(tetrad), pairs
 
 def set_seed(seed):
@@ -195,7 +209,7 @@ def set_seed(seed):
     random.seed(seed)  # Python random module.
 
     # torch.set_deterministic(True)
-    torch.backends.cudnn.enabled = False 
+    torch.backends.cudnn.enabled = False
     torch.backends.cudnn.benchmark = False
     os.environ['CUBLAS_WORKSPACE_CONFIG'] = ':4096:8'
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -204,11 +218,11 @@ class ScoreManager:
     def __init__(self) -> None:
         self.score = []
         self.line = []
-    
+
     def add_instance(self, score, res):
         self.score.append(score)
         self.line.append(res)
-    
+
     def get_best(self):
         best_id = np.argmax(self.score)
         res = self.line[best_id]

@@ -62,7 +62,7 @@ def save_step(data, pred_ent_matrix, pred_rel_matrix, pred_pol_matrix):
         'pred_rel_matrix_nonzero_list': pred_rel_matrix_nonzero_list,
         'pred_pol_matrix_nonzero_list': pred_pol_matrix_nonzero_list
     }
-    save_jsonl('./save_step0711_02.jsonl', sample_)
+    save_jsonl('./save_step0712_01.jsonl', sample)
 
 
 class Main:

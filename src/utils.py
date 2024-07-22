@@ -81,7 +81,7 @@ class MyDataLoader:
 
         max_tri_num = max(map(len, triplets))
         triplet_masks = [[1] * len(w) + [0] * (max_tri_num - len(w)) for w in triplets]
-        triplets = [list(map(list, w)) + [[0] * 7] * (max_tri_num - len(w)) for w in triplets]
+        triplets = [list(map(list, w)) + [[0] * 5] * (max_tri_num - len(w)) for w in triplets]
 
         sentence_masks = np.zeros([len(token2sents), max_lens, max_lens], dtype=int)
         for i in range(len(sentence_length)):
@@ -139,7 +139,7 @@ class MyDataLoader:
 
         train_loader, valid_loader, test_loader = map(load_data, 'train valid test'.split())
 
-        line = 'polarity_dict target_dict aspect_dict opinion_dict entity_dict relation_dict'.split()
+        line = 'polarity_dict aspect_dict opinion_dict entity_dict relation_dict'.split()
         for w, z in zip(line, self.data['label_dict']):
             self.config[w] = z
 
@@ -183,10 +183,10 @@ class RelationMetric:
         tail = lambda x: pieces2words[new2old[x]]
 
         triplet = list(triplet)
-        for s0, e0, s1, e1, s2, e2, pol in triplet:
-            ns0, ns1, ns2 = head(s0), head(s1), head(s2)
-            ne0, ne1, ne2 = tail(e0), tail(e1), tail(e2)
-            res.append([ns0, ne0, ns1, ne1, ns2, ne2, pol])
+        for s0, e0, s1, e1, pol in triplet:
+            ns0, ns1 = head(s0), head(s1)
+            ne0, ne1 = tail(e0), tail(e1)
+            res.append([ns0, ne0, ns1, ne1, pol])
         return res
 
     def trans2pair(self, pred_pairs, new2old, pieces2words):
@@ -272,26 +272,26 @@ class RelationMetric:
             for head, tail, tp in prediction[0]:
                 tp = reverse_ent_dict[tp]
                 head, tail = head, tail + 1
-                tp_dict = {'ENT-T': 'targets', 'ENT-A': 'aspects', 'ENT-O': 'opinions'}
+                tp_dict = {'ENT-A': 'aspects', 'ENT-O': 'opinions'}
                 entities[tp_dict[tp]].append([head, tail])
 
             pairs = defaultdict(list)
-            for key in ['ta', 'to', 'ao']:
+            for key in ['ao']:
                 for s0, e0, s1, e1 in prediction[1][key]:
                     e0, e1 = e0 + 1, e1 + 1
                     pairs[key].append([s0, e0, s1, e1])
 
             new_triples = []
-            for s0, e0, s1, e1, s2, e2, pol in prediction[2]:
+            for s0, e0, s1, e1, pol in prediction[2]:
                 pol = reverse_pol_dict[pol]
-                e0, e1, e2 = e0 + 1, e1 + 1, e2 + 1
+                e0, e1 = e0 + 1, e1 + 1
                 new_triples.append(
-                    [s0, e0, s1, e1, s2, e2, pol, ' '.join(doc[s0:e0]), ' '.join(doc[s1:e1]), ' '.join(doc[s2:e2])])
+                    [s0, e0, s1, e1, pol, ' '.join(doc[s0:e0]), ' '.join(doc[s1:e1])])
 
-            res.append({'doc_id': doc_id, 'triplets': new_triples, \
-                        'targets': entities['targets'], 'aspects': entities['aspects'],
-                        'opinions': entities['opinions'], \
-                        'ta': pairs['ta'], 'to': pairs['to'], 'ao': pairs['ao']})
+            res.append(
+                {'doc_id': doc_id, 'triplets': new_triples, 'targets': entities['targets'],
+                 'aspects': entities['aspects'], 'opinions': entities['opinions'], 'ao': pairs['ao']}
+            )
         logger.info('Save prediction results to {}'.format(pred_file))
         json.dump(res, open(pred_file, 'w', encoding='utf-8'), ensure_ascii=False)
 
